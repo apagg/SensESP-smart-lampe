@@ -14,6 +14,9 @@
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/system/lambda_consumer.h"
 #include "sensesp_app_builder.h"
+// apagg:
+#include "sensesp/signalk/signalk_listener.h"
+#include "sensesp/signalk/signalk_value_listener.h"
 
 using namespace sensesp;
 
@@ -118,6 +121,13 @@ void setup() {
       new SKMetadata("",                       // No units for boolean values
                      "Digital input 2 value")  // Value description
       ));
+
+  const char* sk_gpsfix = "environment.sun";
+  const int listen_delay = 1000;
+  auto* gpsfix = new StringSKListener(sk_gpsfix, listen_delay);
+  gpsfix->connect_to(new LambdaConsumer<String>([](String fix) {
+    Serial.printf(" Natt eller dag: %s   ", fix);
+  }));
 
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
