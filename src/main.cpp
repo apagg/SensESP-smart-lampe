@@ -18,12 +18,26 @@
 #include "sensesp/signalk/signalk_listener.h"
 #include "sensesp/signalk/signalk_value_listener.h"
 
+// neopixel
+#include <Adafruit_NeoPixel.h>
+
+#define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
+#define NUM_PIXELS 5    // The number of LEDs (pixels) on WS2812B LED strip
+
+Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
+// neopixel
+
 using namespace sensesp;
+
+String nattDag = "sunnset";
+int test = 100;
 
 reactesp::ReactESP app;
 
 // The setup function performs one-time application initialization.
 void setup() {
+  ws2812b.begin();  // initialize WS2812B strip object (REQUIRED)
+
 #ifndef SERIAL_DEBUG_DISABLED
   SetupSerialDebug(115200);
 #endif
@@ -39,6 +53,9 @@ void setup() {
                     //->set_sk_server("192.168.10.3", 80)
                     ->get_app();
 
+  /*
+
+
   // GPIO number to use for the analog input
   const uint8_t kAnalogInputPin = 36;
   // Define how often (in milliseconds) new samples are acquired
@@ -47,8 +64,10 @@ void setup() {
   // A value of 3.3 gives output equal to the input voltage.
   const float kAnalogInputScale = 3.3;
 
+
   // Create a new Analog Input Sensor that reads an analog input pin
   // periodically.
+
   auto* analog_input = new AnalogInput(
       kAnalogInputPin, kAnalogInputReadInterval, "", kAnalogInputScale);
 
@@ -57,6 +76,8 @@ void setup() {
   analog_input->attach([analog_input]() {
     debugD("Analog input value: %f", analog_input->get());
   });
+
+  */
 
   // Set GPIO pin 15 to output and toggle it every 650 ms
 
@@ -103,6 +124,38 @@ void setup() {
       kDigitalInput2Interval,
       [kDigitalInput2Pin]() { return digitalRead(kDigitalInput2Pin); });
 
+  digital_input2->connect_to(new LambdaConsumer<bool>([](bool input) {
+    debugD("********** Digital input value changed: %d", input);
+    debugD("---------- Natt Dag  : %s", nattDag);
+
+    if (input == 1) {  // lyset er av
+      debugD("if : %d", input);
+
+      for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
+        ws2812b.setPixelColor(pixel, ws2812b.Color(0, 0, 0));
+        ws2812b.show();  // update to the WS2812B Led Strip
+      }
+    } else {
+      debugD("else : %d", input);
+
+      if (nattDag == "night") {
+        for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
+          ws2812b.setPixelColor(pixel, ws2812b.Color(20, 0, 0));
+          ws2812b.show();  // update to the WS2812B Led Strip
+        }
+      }
+
+      else {
+        for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
+          ws2812b.setPixelColor(pixel, ws2812b.Color(255, 255, 255));
+          ws2812b.show();  // update to the WS2812B Led Strip
+        }
+      }
+    }
+  }));
+
+  /*
+
   // Connect the analog input to Signal K output. This will publish the
   // analog input value to the Signal K server every time it changes.
   analog_input->connect_to(new SKOutputFloat(
@@ -113,6 +166,8 @@ void setup() {
       new SKMetadata("V",                     // Define output units
                      "Analog input voltage")  // Value description
       ));
+
+  */
 
   // Connect digital input 2 to Signal K output.
   digital_input2->connect_to(new SKOutputBool(
@@ -125,8 +180,12 @@ void setup() {
   const char* sk_gpsfix = "environment.sun";
   const int listen_delay = 1000;
   auto* gpsfix = new StringSKListener(sk_gpsfix, listen_delay);
+
   gpsfix->connect_to(new LambdaConsumer<String>([](String fix) {
+    nattDag = fix;
+    test = 200;
     Serial.printf(" Natt eller dag: %s   ", fix);
+    Serial.println();
   }));
 
   // Start networking, SK server connections and other SensESP internals
