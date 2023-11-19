@@ -25,10 +25,11 @@ DHT dht(DHTPIN, DHTTYPE);
 
 using namespace sensesp;
 
+String lampeNavn = "test-1";
+String lampeNavnFult = "sensESP-smart-lampe-" + lampeNavn;
 String nattDag = "day";
 
 reactesp::ReactESP app;
-
 
 // Define the function that will be called every time we want
 // an updated temperature value from the sensor. The sensor reads degrees
@@ -48,7 +49,7 @@ void setup() {
   SensESPAppBuilder builder;
   sensesp_app = (&builder)
                     // Set a custom hostname for the app.
-                    ->set_hostname("sensESP-smart-lampe-1")
+                    ->set_hostname(lampeNavnFult)
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     //->set_wifi("My WiFi SSID", "my_wifi_password")
@@ -70,8 +71,8 @@ void setup() {
       new RepeatSensor<float>(read_DHT_interval, read_DHT_hum_callback);
 
   // Set the Signal K Path for the output
-  const char* sk_DHT_temp_path = "enviroment.lampe.1.temperature";
-  const char* sk_DHT_hum_path = "enviroment.lampe.1.relativeHumidity";
+  String sk_DHT_temp_path = "enviroment.lampe." + lampeNavn + ".temperature";
+  String sk_DHT_hum_path = "enviroment.lampe." + lampeNavn + ".relativeHumidity";
 
   // Send the temperature to the Signal K server as a Float
   lampe_DHT_temp->connect_to(new SKOutputFloat(sk_DHT_temp_path));
@@ -80,16 +81,18 @@ void setup() {
 
 
   // Test om det er beveglese og slå av og på lyset 
-  const uint8_t kDigitalInput2Pin = 13;
-  const unsigned int kDigitalInput2Interval = 250;
+  const uint8_t kPIRInputPin = 13; // Define PIR pin
+  const unsigned int kPIRInputInterval = 250;
+  String sk_PIR_path = "sensors.pir." + lampeNavn + ".value";
+  String sk_PIR_conf_path = "/sensors/pir/" + lampeNavn + "value";
   
-  pinMode(kDigitalInput2Pin, INPUT_PULLDOWN);
+  pinMode(kPIRInputPin, INPUT_PULLDOWN);
   
-  auto* digital_input2 = new RepeatSensor<bool>(
-      kDigitalInput2Interval,
-      [kDigitalInput2Pin]() { return digitalRead(kDigitalInput2Pin); });
+  auto* pir_input = new RepeatSensor<bool>(
+      kPIRInputInterval,
+      [kPIRInputPin]() { return digitalRead(kPIRInputPin); });
 
-  digital_input2->connect_to(new LambdaConsumer<bool>([](bool input) {
+  pir_input->connect_to(new LambdaConsumer<bool>([](bool input) {
     //debugD("********** Digital input value changed: %d", input);
      
     if (input == 0) {  // lyset er av
@@ -116,12 +119,12 @@ void setup() {
     }
   }));
   
-  // Connect digital input 2 to Signal K output.
-  digital_input2->connect_to(new SKOutputBool(
-      "sensors.digital_input2.value",          // Signal K path
-      "/sensors/digital_input2/value",         // configuration path
+  // Connect PIR sensor to Signal K output.
+  pir_input->connect_to(new SKOutputBool(
+      sk_PIR_path,          // Signal K path
+      sk_PIR_conf_path,         // configuration path
       new SKMetadata("",                       // No units for boolean values
-                     "Digital input 2 value")  // Value description
+                     "PIR input value")  // Value description
       ));
 
   // Listen for enviroment.mode
@@ -129,18 +132,11 @@ void setup() {
   const int listen_delay = 1000;
   auto* env_sun = new StringSKListener(sk_sun, listen_delay);
   
-   
-
   env_sun->connect_to(new LambdaConsumer<String>([](String sun) {
     nattDag = sun;
     Serial.printf(" Natt eller dag: %s   ", sun);
     Serial.println();
   }));
-
-
-  
-
-  
 
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
