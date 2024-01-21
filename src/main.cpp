@@ -19,7 +19,7 @@
 #include "DHT.h"
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
-#define NUM_PIXELS 24    // The number of LEDs (pixels) on WS2812B LED strip
+#define NUM_PIXELS 60    // The number of LEDs (pixels) on WS2812B LED strip
 #define DHTPIN 5   // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
@@ -96,7 +96,7 @@ void setup() {
   auto* pir_input = new RepeatSensor<float>(pir_input_interval,
     [kPIRInputPin]() { return digitalRead(kPIRInputPin); });
 
-  auto rgb_light = [](bool input, float time, int n_r, int n_g, int n_b) -> bool {
+  auto rgb_light = [](bool input, float time, int s_day, int s_night) -> bool {
     //debugD("********** Digital input value changed: %d", input);
 
     if (input == 1) {on_time = millis() + time * 1000; };
@@ -111,13 +111,13 @@ void setup() {
     } else {
       if (natt_dag == "night") {
         for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
-          ws2812b.setPixelColor(pixel, ws2812b.Color(n_r, n_g, n_b));
+          ws2812b.setPixelColor(pixel, ws2812b.Color(s_night, 0, 0));
           ws2812b.show();  // update to the WS2812B Led Strip
         }
       }
       else {
         for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
-          ws2812b.setPixelColor(pixel, ws2812b.Color(255, 255, 255));
+          ws2812b.setPixelColor(pixel, ws2812b.Color(s_day, s_day, s_day));
           ws2812b.show();  // update to the WS2812B Led Strip
         }
       }
@@ -126,20 +126,20 @@ void setup() {
   };
   
   const ParamInfo* log_lambda_param_data = new ParamInfo[4]{
-      {"time", "Tid"}, {"n_r", "Red"}, {"n_g", "Green"}, {"n_b", "Blue"}};
+      {"time", "Time"}, {"s_day", "Strenght day"}, {"s_night", "Strenght night"}};
 
-  auto light_transform = new LambdaTransform<bool, bool, float, int, int, int>(
-    rgb_light, 60, 50, 0, 0, log_lambda_param_data,
-      "/Light/PIR Light");
+  auto light_transform = new LambdaTransform<bool, bool, float, int, int>(
+    rgb_light, 60, 255, 50, log_lambda_param_data,
+      "/light/parameters");
 
-  light_transform->set_description ("Set the time for light to be on and the color of the light at night");
+  light_transform->set_description ("Set the time for light to be on and the strenght of the light");
   pir_input->connect_to(light_transform);
   
-  PressRepeater* press_repeater_pir_input = new PressRepeater("Light/PressRepeater",0,10000,10000);
+  PressRepeater* press_repeater_pir_input = new PressRepeater("/light/PressRepeater",0,10000,10000);
   pir_input->connect_to(press_repeater_pir_input);
 
   // Connect PIR to Signal K output.
-  const char* config_path_repeat = "/signalk/repeat report";
+  const char* config_path_repeat = "/light/RepeatReport";
   String sk_PIR_path = "sensors.pir.name.value";
   String sk_PIR_conf_path = "/sensors/pir/value";
   press_repeater_pir_input->connect_to(new RepeatReport<bool>(10000, config_path_repeat))
