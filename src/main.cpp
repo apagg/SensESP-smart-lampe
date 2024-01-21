@@ -28,8 +28,7 @@ DHT dht(DHTPIN, DHTTYPE);
 
 using namespace sensesp;
 
-String lampe_navn = "salong";
-String lampe_navn_fult = "sensESP-smart-lampe-" + lampe_navn;
+String lampe_navn = "sensESP-smart-lampe";
 String natt_dag = "day";
 long on_time = 0;
 
@@ -53,7 +52,7 @@ void setup() {
   SensESPAppBuilder builder;
   sensesp_app = (&builder)
                     // Set a custom hostname for the app.
-                    ->set_hostname(lampe_navn_fult)
+                    ->set_hostname(lampe_navn)
                     // Optionally, hard-code the WiFi and Signal K server
                     // settings. This is normally not needed.
                     //->set_wifi("My WiFi SSID", "my_wifi_password")
@@ -75,12 +74,14 @@ void setup() {
       new RepeatSensor<float>(read_DHT_interval, read_DHT_hum_callback);
 
   // Set the Signal K Path for the output
-  String sk_DHT_temp_path = "environment.lampe." + lampe_navn + ".temperature";
-  String sk_DHT_hum_path = "environment.lampe." + lampe_navn + ".relativeHumidity";
+  String sk_DHT_temp_path = "environment.lampe.name.temperature";
+  String sk_DHT_temp_conf_path = "/sensors/temp/value";
+  String sk_DHT_hum_path = "environment.lampe.name.relativeHumidity";
+  String sk_DHT_hum_conf_path = "/sensors/hum/value";
 
   // Send the temperature to the Signal K server as a Float
-  lampe_DHT_temp->connect_to(new SKOutputFloat(sk_DHT_temp_path));
-  lampe_DHT_hum->connect_to(new SKOutputFloat(sk_DHT_hum_path));
+  lampe_DHT_temp->connect_to(new SKOutputFloat(sk_DHT_temp_path,sk_DHT_temp_conf_path));
+  lampe_DHT_hum->connect_to(new SKOutputFloat(sk_DHT_hum_path,sk_DHT_hum_conf_path));
   // Slutt DHT
   //
   //
@@ -89,15 +90,11 @@ void setup() {
   // Test om det er beveglese og slå av og på lyset 
   const uint8_t kPIRInputPin = 13; // Define PIR pin
   unsigned int pir_input_interval = 250;
-  String sk_PIR_path = "sensors.pir." + lampe_navn + ".value";
-  String sk_PIR_conf_path = "/sensors/pir/" + lampe_navn + "/value";
   
   pinMode(kPIRInputPin, INPUT_PULLDOWN);
   
   auto* pir_input = new RepeatSensor<float>(pir_input_interval,
     [kPIRInputPin]() { return digitalRead(kPIRInputPin); });
-
-  
 
   auto rgb_light = [](bool input, float time, int n_r, int n_g, int n_b) -> bool {
     //debugD("********** Digital input value changed: %d", input);
@@ -138,13 +135,15 @@ void setup() {
   light_transform->set_description ("Set the time for light to be on and the color of the light at night");
   pir_input->connect_to(light_transform);
   
-  PressRepeater* pr = new PressRepeater("Light/PressRepeater",0,10000,10000);
-  pir_input->connect_to(pr);
-
-  const char* config_path_repeat = "/signalk/repeat";
+  PressRepeater* press_repeater_pir_input = new PressRepeater("Light/PressRepeater",0,10000,10000);
+  pir_input->connect_to(press_repeater_pir_input);
 
   // Connect PIR to Signal K output.
-  pr->connect_to(new RepeatReport<bool>(10000, config_path_repeat))->connect_to(new SKOutputBool(
+  const char* config_path_repeat = "/signalk/repeat report";
+  String sk_PIR_path = "sensors.pir.name.value";
+  String sk_PIR_conf_path = "/sensors/pir/value";
+  press_repeater_pir_input->connect_to(new RepeatReport<bool>(10000, config_path_repeat))
+    ->connect_to(new SKOutputBool(
       sk_PIR_path,          // Signal K path
       sk_PIR_conf_path,     // configuration path
       new SKMetadata("",    // No units for boolean values
