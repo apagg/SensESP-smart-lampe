@@ -9,9 +9,12 @@
 #include "sensesp/sensors/sensor.h"
 #include "sensesp/signalk/signalk_output.h"
 #include "sensesp/system/lambda_consumer.h"
+#include "sensesp/transforms/lambda_transform.h"
+#include "sensesp/transforms/press_repeater.h"
 #include "sensesp_app_builder.h"
 #include "sensesp/signalk/signalk_listener.h"
 #include "sensesp/signalk/signalk_value_listener.h"
+#include "sensesp/transforms/repeat_report.h"
 #include <Adafruit_NeoPixel.h>
 #include "DHT.h"
 
@@ -19,8 +22,6 @@
 #define NUM_PIXELS 24    // The number of LEDs (pixels) on WS2812B LED strip
 #define DHTPIN 5   // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-#define PIRPIN 13 // PIR PIN
-
 
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 DHT dht(DHTPIN, DHTTYPE);
@@ -30,6 +31,7 @@ using namespace sensesp;
 String lampe_navn = "salong";
 String lampe_navn_fult = "sensESP-smart-lampe-" + lampe_navn;
 String natt_dag = "day";
+long on_time = 0;
 
 reactesp::ReactESP app;
 
@@ -80,7 +82,9 @@ void setup() {
   lampe_DHT_temp->connect_to(new SKOutputFloat(sk_DHT_temp_path));
   lampe_DHT_hum->connect_to(new SKOutputFloat(sk_DHT_hum_path));
   // Slutt DHT
-
+  //
+  //
+  //
   
   // Test om det er beveglese og slå av og på lyset 
   const uint8_t kPIRInputPin = 13; // Define PIR pin
@@ -90,28 +94,30 @@ void setup() {
   
   pinMode(kPIRInputPin, INPUT_PULLDOWN);
   
-  auto* pir_input = new RepeatSensor<bool>(
-      pir_input_interval,
-      [kPIRInputPin]() { return digitalRead(kPIRInputPin); });
+  auto* pir_input = new RepeatSensor<float>(pir_input_interval,
+    [kPIRInputPin]() { return digitalRead(kPIRInputPin); });
 
-  pir_input->connect_to(new LambdaConsumer<bool>([](bool input) {
+  
+
+  auto rgb_light = [](bool input, float time, int n_r, int n_g, int n_b) -> bool {
     //debugD("********** Digital input value changed: %d", input);
-     
-    if (input == 0) {  // lyset er av
-      
+
+    if (input == 1) {on_time = millis() + time * 1000; };
+    //debugD("********** on_time: %d", on_time);
+    //debugD("********** millis(): %d", millis());
+
+    if (on_time < millis()) {  // lyset er av
       for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
         ws2812b.setPixelColor(pixel, ws2812b.Color(0, 0, 0));
         ws2812b.show();  // update to the WS2812B Led Strip
       }
     } else {
-      
       if (natt_dag == "night") {
         for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
-          ws2812b.setPixelColor(pixel, ws2812b.Color(50, 0, 0));
+          ws2812b.setPixelColor(pixel, ws2812b.Color(n_r, n_g, n_b));
           ws2812b.show();  // update to the WS2812B Led Strip
         }
       }
-
       else {
         for (int pixel = 0; pixel < NUM_PIXELS; pixel++) {  // for each pixel
           ws2812b.setPixelColor(pixel, ws2812b.Color(255, 255, 255));
@@ -119,14 +125,30 @@ void setup() {
         }
       }
     }
-  }));
+    return input;
+  };
   
+  const ParamInfo* log_lambda_param_data = new ParamInfo[4]{
+      {"time", "Tid"}, {"n_r", "Red"}, {"n_g", "Green"}, {"n_b", "Blue"}};
+
+  auto light_transform = new LambdaTransform<bool, bool, float, int, int, int>(
+    rgb_light, 60, 50, 0, 0, log_lambda_param_data,
+      "/Light/PIR Light");
+
+  light_transform->set_description ("Set the time for light to be on and the color of the light at night");
+  pir_input->connect_to(light_transform);
+  
+  PressRepeater* pr = new PressRepeater("Light/PressRepeater",0,10000,10000);
+  pir_input->connect_to(pr);
+
+  const char* config_path_repeat = "/signalk/repeat";
+
   // Connect PIR to Signal K output.
-  pir_input->connect_to(new SKOutputBool(
+  pr->connect_to(new RepeatReport<bool>(10000, config_path_repeat))->connect_to(new SKOutputBool(
       sk_PIR_path,          // Signal K path
-      sk_PIR_conf_path,         // configuration path
-      new SKMetadata("",                       // No units for boolean values
-                     "PIR input value")  // Value description
+      sk_PIR_conf_path,     // configuration path
+      new SKMetadata("",    // No units for boolean values
+        "PIR input value")  // Value description
       ));
 
   // Listen for enviroment.mode
@@ -136,8 +158,8 @@ void setup() {
   
   env_sun->connect_to(new LambdaConsumer<String>([](String sun) {
     natt_dag = sun;
-    Serial.printf(" Natt eller dag: %s   ", sun);
-    Serial.println();
+    debugD(" <<<<<<<<<<<<<<<<<<Natt eller dag>>>>>>>>>>>>>>>>>: %s   ", sun);
+    
   }));
 
   // Start networking, SK server connections and other SensESP internals
