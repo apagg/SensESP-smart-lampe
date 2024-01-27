@@ -16,7 +16,9 @@
 #include "sensesp/signalk/signalk_value_listener.h"
 #include "sensesp/transforms/repeat_report.h"
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_ADS1X15.h>
 #include "DHT.h"
+#include "sensesp/transforms/linear.h"
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
 #define NUM_PIXELS 60    // The number of LEDs (pixels) on WS2812B LED strip
@@ -25,6 +27,8 @@
 
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 DHT dht(DHTPIN, DHTTYPE);
+Adafruit_ADS1115 ads;
+
 
 using namespace sensesp;
 
@@ -39,6 +43,8 @@ reactesp::ReactESP app;
 // Celsius, but all temps in Signal K are in Kelvin, so add 273.15.
 float read_DHT_temp_callback() { return (dht.readTemperature() + 273.15); }
 float read_DHT_hum_callback() { return (dht.readHumidity()); }
+  
+float read_ADS_A0() { return (ads.readADC_SingleEnded(0)); }
 
 // The setup function performs one-time application initialization.
 void setup() {
@@ -86,8 +92,10 @@ void setup() {
   //
   //
   //
-  
+  // Start PIR
+  //
   // Test om det er beveglese og slå av og på lyset 
+
   const uint8_t kPIRInputPin = 13; // Define PIR pin
   unsigned int pir_input_interval = 250;
   
@@ -154,6 +162,8 @@ void setup() {
   const char* sk_sun = "environment.mode";
   const int listen_delay = 1000;
   auto* env_sun = new StringSKListener(sk_sun, listen_delay);
+
+  
   
   env_sun->connect_to(new LambdaConsumer<String>([](String sun) {
     natt_dag = sun;
@@ -161,6 +171,30 @@ void setup() {
     
   }));
 
+  // End PIR
+  //
+  //
+  //
+  // Start ADS1X15
+
+  ads.begin();
+
+  // I2C pins 
+  // SDA Pin = 21;
+  // SCL Pin = 22;
+    
+  unsigned int read_ADS_interval = 2000;
+  
+  auto lampe_ADS_A0 =
+      new RepeatSensor<float>(read_ADS_interval, read_ADS_A0);
+
+  String sk_ADS_A0_path = "environment.lampe.name.A0";
+  String sk_ADS_A0_conf_path = "/sensors/A0/path";
+  String sk_ADS_A0_Linear_conf_path = "/sensor/A0/Linear";
+  
+  lampe_ADS_A0->connect_to(new Linear(0.0021,0,sk_ADS_A0_Linear_conf_path))->connect_to(
+    new SKOutputFloat(sk_ADS_A0_path,sk_ADS_A0_conf_path));
+  
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
 }
