@@ -4,6 +4,9 @@
 // bruker environment.mode for å finne ut om det er natt eller dag
 // Kontrolerer WS2812B LED stripe
 
+// er ADS1115 koblet til?
+#define ENABLE_ADS1115
+
 #include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/digital_input.h"
 #include "sensesp/sensors/sensor.h"
@@ -27,7 +30,9 @@
 
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 DHT dht(DHTPIN, DHTTYPE);
-Adafruit_ADS1115 ads;
+
+
+
 
 
 using namespace sensesp;
@@ -43,8 +48,11 @@ reactesp::ReactESP app;
 // Celsius, but all temps in Signal K are in Kelvin, so add 273.15.
 float read_DHT_temp_callback() { return (dht.readTemperature() + 273.15); }
 float read_DHT_hum_callback() { return (dht.readHumidity()); }
-  
+
+#ifdef ENABLE_ADS1115
+Adafruit_ADS1115 ads;  
 float read_ADS_A0() { return (ads.readADC_SingleEnded(0)); }
+#endif
 
 // The setup function performs one-time application initialization.
 void setup() {
@@ -162,8 +170,6 @@ void setup() {
   const char* sk_sun = "environment.mode";
   const int listen_delay = 1000;
   auto* env_sun = new StringSKListener(sk_sun, listen_delay);
-
-  
   
   env_sun->connect_to(new LambdaConsumer<String>([](String sun) {
     natt_dag = sun;
@@ -176,7 +182,7 @@ void setup() {
   //
   //
   // Start ADS1X15
-
+  #ifdef ENABLE_ADS1115
   ads.begin();
 
   // I2C pins 
@@ -192,9 +198,13 @@ void setup() {
   String sk_ADS_A0_conf_path = "/sensors/A0/path";
   String sk_ADS_A0_Linear_conf_path = "/sensor/A0/Linear";
   
-  lampe_ADS_A0->connect_to(new Linear(0.0021,0,sk_ADS_A0_Linear_conf_path))->connect_to(
+  lampe_ADS_A0->connect_to(new Linear(0.002065,0,sk_ADS_A0_Linear_conf_path))->connect_to(
     new SKOutputFloat(sk_ADS_A0_path,sk_ADS_A0_conf_path));
   
+  #endif
+  // End ADS1X15
+  //
+  //
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
 }
