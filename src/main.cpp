@@ -5,7 +5,7 @@
 // Kontrolerer WS2812B LED stripe
 
 // er ADS1115 koblet til?
-#define ENABLE_ADS1115
+// #define ENABLE_ADS1115
 
 #include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/digital_input.h"
@@ -151,15 +151,10 @@ void setup() {
   light_transform->set_description ("Set the time for light to be on and the strenght of the light");
   pir_input->connect_to(light_transform);
   
-  PressRepeater* press_repeater_pir_input = new PressRepeater("/light/PressRepeater",0,10000,10000);
-  pir_input->connect_to(press_repeater_pir_input);
-
-  // Connect PIR to Signal K output.
-  const char* config_path_repeat = "/light/RepeatReport";
+  
   String sk_PIR_path = "sensors.pir.name.value";
   String sk_PIR_conf_path = "/sensors/pir/value";
-  press_repeater_pir_input->connect_to(new RepeatReport<bool>(10000, config_path_repeat))
-    ->connect_to(new SKOutputBool(
+  pir_input->connect_to(new SKOutputBool(
       sk_PIR_path,          // Signal K path
       sk_PIR_conf_path,     // configuration path
       new SKMetadata("",    // No units for boolean values
