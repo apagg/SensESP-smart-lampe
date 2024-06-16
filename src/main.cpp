@@ -71,6 +71,7 @@ void setup() {
                     // settings. This is normally not needed.
                     //->set_wifi("My WiFi SSID", "my_wifi_password")
                     //->set_sk_server("192.168.10.3", 80)
+                    ->enable_ota("OTAord")
                     ->get_app();
  
   dht.begin();
