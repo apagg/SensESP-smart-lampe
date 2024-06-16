@@ -6,6 +6,7 @@
 
 // er ADS1115 koblet til?
 // #define ENABLE_ADS1115
+#define ENABLE_1_WIRE
 
 #include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/digital_input.h"
@@ -22,6 +23,7 @@
 #include <Adafruit_ADS1X15.h>
 #include "DHT.h"
 #include "sensesp/transforms/linear.h"
+#include "sensesp_onewire/onewire_temperature.h"
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
 #define NUM_PIXELS 60    // The number of LEDs (pixels) on WS2812B LED strip
@@ -200,6 +202,52 @@ void setup() {
   #endif
   // End ADS1X15
   //
+  // Start 1-wire
+  #ifdef ENABLE_1_WIRE
+  uint8_t oneWirePin = 4;
+
+  DallasTemperatureSensors* dts = new DallasTemperatureSensors(oneWirePin);
+
+  // Define how often SensESP should read the sensor(s) in milliseconds
+  uint onewire_read_delay = 500;
+
+  // Below are temperatures sampled and sent to Signal K server
+  // To find valid Signal K Paths that fits your need you look at this link:
+  // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
+
+  // Measure onewire 1
+  auto* onewire_temp_1 =
+      new OneWireTemperature(dts, onewire_read_delay, "/onewire_1/oneWire");
+
+  onewire_temp_1->connect_to(new Linear(1.0, 0.0, "/onewire_1/linear"))
+      ->connect_to(new SKOutputFloat("environment.onewire_1.temperature",
+                                     "/onewire_1/skPath"));
+
+  // Measure onewire 2
+  auto* onewire_temp_2 =
+      new OneWireTemperature(dts, onewire_read_delay, "/onewire_2/oneWire");
+
+  onewire_temp_2->connect_to(new Linear(1.0, 0.0, "/onewire_2/linear"))
+      ->connect_to(new SKOutputFloat("environment.onewire_2.temperature",
+                                     "/onewire_2/skPath"));
+
+  // Measure onewire 3
+  auto* onewire_temp_3 =
+      new OneWireTemperature(dts, onewire_read_delay, "/onewire_3/oneWire");
+
+  onewire_temp_3->connect_to(new Linear(1.0, 0.0, "/onewire_3/linear"))
+      ->connect_to(new SKOutputFloat("environment.onewire_3.temperature",
+                                     "/onewire_3/skPath"));
+  
+  // Measure  onewire 4
+  auto* onewire_temp_4 =
+      new OneWireTemperature(dts, onewire_read_delay, "/onewire_4/oneWire");
+
+  onewire_temp_4->connect_to(new Linear(1.0, 0.0, "/onewire_4/linear"))
+      ->connect_to(new SKOutputFloat("environment.onewire_4.temperature",
+                                     "/onewire_4/skPath"));
+  #endif
+  // End 1-wire
   //
   // Start networking, SK server connections and other SensESP internals
   sensesp_app->start();
