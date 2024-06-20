@@ -5,7 +5,7 @@
 // Kontrolerer WS2812B LED stripe
 
 // er ADS1115 koblet til?
-// #define ENABLE_ADS1115
+#define ENABLE_ADS1115
 #define ENABLE_1_WIRE
 
 #include "sensesp/sensors/analog_input.h"
@@ -54,6 +54,9 @@ float read_DHT_hum_callback() { return (dht.readHumidity()); }
 #ifdef ENABLE_ADS1115
 Adafruit_ADS1115 ads;  
 float read_ADS_A0() { return (ads.readADC_SingleEnded(0)); }
+float read_ADS_A1() { return (ads.readADC_SingleEnded(1)); }
+float read_ADS_A2() { return (ads.readADC_SingleEnded(2)); }
+float read_ADS_A3() { return (ads.readADC_SingleEnded(3)); }
 #endif
 
 // The setup function performs one-time application initialization.
@@ -198,6 +201,36 @@ void setup() {
   
   lampe_ADS_A0->connect_to(new Linear(0.002065,0,sk_ADS_A0_Linear_conf_path))->connect_to(
     new SKOutputFloat(sk_ADS_A0_path,sk_ADS_A0_conf_path));
+
+  auto lampe_ADS_A1 =
+      new RepeatSensor<float>(read_ADS_interval, read_ADS_A1);
+
+  String sk_ADS_A1_path = "environment.lampe.name.A1";
+  String sk_ADS_A1_conf_path = "/sensors/A1/path";
+  String sk_ADS_A1_Linear_conf_path = "/sensor/A1/Linear";
+  
+  lampe_ADS_A1->connect_to(new Linear(0.002065,0,sk_ADS_A1_Linear_conf_path))->connect_to(
+    new SKOutputFloat(sk_ADS_A1_path,sk_ADS_A1_conf_path));
+
+  auto lampe_ADS_A2 =
+      new RepeatSensor<float>(read_ADS_interval, read_ADS_A2);
+
+  String sk_ADS_A2_path = "environment.lampe.name.A2";
+  String sk_ADS_A2_conf_path = "/sensors/A2/path";
+  String sk_ADS_A2_Linear_conf_path = "/sensor/A2/Linear";
+  
+  lampe_ADS_A2->connect_to(new Linear(0.002065,0,sk_ADS_A2_Linear_conf_path))->connect_to(
+    new SKOutputFloat(sk_ADS_A2_path,sk_ADS_A2_conf_path));
+
+  auto lampe_ADS_A3 =
+      new RepeatSensor<float>(read_ADS_interval, read_ADS_A3);
+
+  String sk_ADS_A3_path = "environment.lampe.name.A3";
+  String sk_ADS_A3_conf_path = "/sensors/A3/path";
+  String sk_ADS_A3_Linear_conf_path = "/sensor/A3/Linear";
+  
+  lampe_ADS_A3->connect_to(new Linear(0.002065,0,sk_ADS_A3_Linear_conf_path))->connect_to(
+    new SKOutputFloat(sk_ADS_A3_path,sk_ADS_A3_conf_path));
   
   #endif
   // End ADS1X15
