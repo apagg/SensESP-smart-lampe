@@ -24,15 +24,22 @@
 #include "DHT.h"
 #include "sensesp/transforms/linear.h"
 #include "sensesp_onewire/onewire_temperature.h"
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
 #define NUM_PIXELS 60    // The number of LEDs (pixels) on WS2812B LED strip
 #define DHTPIN 5   // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET    -1
+
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 DHT dht(DHTPIN, DHTTYPE);
-
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 
 
@@ -62,6 +69,25 @@ float read_ADS_A3() { return (ads.readADC_SingleEnded(3)); }
 // The setup function performs one-time application initialization.
 void setup() {
 
+// display
+
+if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+
+
+display.display();
+ delay(2000);
+ display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.println("SmartLampe");
+  display.println("Valentine");
+  display.display();
+//display
 
 #ifndef SERIAL_DEBUG_DISABLED
   SetupSerialDebug(115200);
@@ -212,6 +238,8 @@ void setup() {
   lampe_ADS_A1->connect_to(new Linear(0.002065,0,sk_ADS_A1_Linear_conf_path))->connect_to(
     new SKOutputFloat(sk_ADS_A1_path,sk_ADS_A1_conf_path));
 
+  
+
   auto lampe_ADS_A2 =
       new RepeatSensor<float>(read_ADS_interval, read_ADS_A2);
 
@@ -248,13 +276,26 @@ void setup() {
   // To find valid Signal K Paths that fits your need you look at this link:
   // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
 
+// temp display
+  auto* temp_display = new LambdaConsumer<float>([](float input) -> void {
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    //display.println("Temp: ");
+    display.setTextSize(4);
+    display.println(input - 273.15, 1);
+    display.display();
+  
+  });
+
+  
+
   // Measure onewire 1
   auto* onewire_temp_1 =
       new OneWireTemperature(dts, onewire_read_delay, "/onewire_1/oneWire");
 
   onewire_temp_1->connect_to(new Linear(1.0, 0.0, "/onewire_1/linear"))
       ->connect_to(new SKOutputFloat("environment.onewire_1.temperature",
-                                     "/onewire_1/skPath"));
+                                     "/onewire_1/skPath"))->connect_to(temp_display);
 
   // Measure onewire 2
   auto* onewire_temp_2 =
@@ -279,6 +320,7 @@ void setup() {
   onewire_temp_4->connect_to(new Linear(1.0, 0.0, "/onewire_4/linear"))
       ->connect_to(new SKOutputFloat("environment.onewire_4.temperature",
                                      "/onewire_4/skPath"));
+
   #endif
   // End 1-wire
   //
