@@ -7,6 +7,7 @@
 // er ADS1115 koblet til?
 #define ENABLE_ADS1115
 #define ENABLE_1_WIRE
+#define OLED_DISPLAY
 
 #include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/digital_input.h"
@@ -24,9 +25,11 @@
 #include "DHT.h"
 #include "sensesp/transforms/linear.h"
 #include "sensesp_onewire/onewire_temperature.h"
+#ifdef OLED_DISPLAY
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#endif
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
 #define NUM_PIXELS 60    // The number of LEDs (pixels) on WS2812B LED strip
@@ -70,6 +73,7 @@ float read_ADS_A3() { return (ads.readADC_SingleEnded(3)); }
 void setup() {
 
 // display
+#ifdef OLED_DISPLAY
 
 if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -88,6 +92,8 @@ display.display();
   display.println("SmartLampe");
   display.println("Valentine");
   display.display();
+
+#endif
 //display
 
 #ifndef SERIAL_DEBUG_DISABLED
@@ -277,7 +283,18 @@ display.display();
   // To find valid Signal K Paths that fits your need you look at this link:
   // https://signalk.org/specification/1.4.0/doc/vesselsBranch.html
 
+
+
+  // Measure onewire 1
+  auto* onewire_temp_1 =
+      new OneWireTemperature(dts, onewire_read_delay, "/onewire_1/oneWire");
+
+  onewire_temp_1->connect_to(new Linear(1.0, 0.0, "/onewire_1/linear"))
+      ->connect_to(new SKOutputFloat("environment.onewire_1.temperature",
+                                     "/onewire_1/skPath"));
+
 // temp display
+#ifdef OLED_DISPLAY
   auto* temp_display = new LambdaConsumer<float>([](float input) -> void {
     display.clearDisplay();
     display.setCursor(0, 0);
@@ -288,17 +305,9 @@ display.display();
   
   });
 
-  
-
-  // Measure onewire 1
-  auto* onewire_temp_1 =
-      new OneWireTemperature(dts, onewire_read_delay, "/onewire_1/oneWire");
-
-  onewire_temp_1->connect_to(new Linear(1.0, 0.0, "/onewire_1/linear"))
-      ->connect_to(new SKOutputFloat("environment.onewire_1.temperature",
-                                     "/onewire_1/skPath"));
-
   onewire_temp_1->connect_to(temp_display);
+
+#endif
 
   // Measure onewire 2
   auto* onewire_temp_2 =
