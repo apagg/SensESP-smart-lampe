@@ -83,6 +83,7 @@ display.display();
 
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  display.setRotation(2);
   display.setCursor(0, 0);
   display.println("SmartLampe");
   display.println("Valentine");
@@ -295,7 +296,9 @@ display.display();
 
   onewire_temp_1->connect_to(new Linear(1.0, 0.0, "/onewire_1/linear"))
       ->connect_to(new SKOutputFloat("environment.onewire_1.temperature",
-                                     "/onewire_1/skPath"))->connect_to(temp_display);
+                                     "/onewire_1/skPath"));
+
+  onewire_temp_1->connect_to(temp_display);
 
   // Measure onewire 2
   auto* onewire_temp_2 =
