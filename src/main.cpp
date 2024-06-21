@@ -27,8 +27,8 @@
 #include "sensesp_onewire/onewire_temperature.h"
 #ifdef OLED_DISPLAY
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#include <U8g2lib.h>
 #endif
 
 #define PIN_WS2812B 33  // The ESP32 pin GPIO16 connected to WS2812B
@@ -42,10 +42,9 @@
 
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 DHT dht(DHTPIN, DHTTYPE);
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-
-
+#ifdef OLED_DISPLAY
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+#endif
 
 using namespace sensesp;
 
@@ -75,23 +74,14 @@ void setup() {
 // display
 #ifdef OLED_DISPLAY
 
-if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
-  }
-
-
-display.display();
- delay(2000);
- display.clearDisplay();
-
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setRotation(2);
-  display.setCursor(0, 0);
-  display.println("SmartLampe");
-  display.println("Valentine");
-  display.display();
+  u8g2.begin();
+  u8g2.clearBuffer();		
+  u8g2.setFlipMode(1);			
+  u8g2.setFont(u8g2_font_ncenB12_tr);	
+  u8g2.drawStr(0,18,"samart-lampe");
+  u8g2.setCursor(0,40);
+  u8g2.print("Valentine");
+  u8g2.sendBuffer();					
 
 #endif
 //display
@@ -296,13 +286,14 @@ display.display();
 // temp display
 #ifdef OLED_DISPLAY
   auto* temp_display = new LambdaConsumer<float>([](float input) -> void {
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    //display.println("Temp: ");
-    display.setTextSize(4);
-    display.println(input - 273.15, 1);
-    display.display();
-  
+    u8g2.clearBuffer();		
+    u8g2.setFlipMode(1);			
+    u8g2.setFont(u8g2_font_ncenB18_tr);	
+    u8g2.drawStr(0,18,"temp Kjol");
+    u8g2.setCursor(0,60);
+    u8g2.setFont(u8g2_font_ncenB24_tr);
+    u8g2.print(input - 273.15,1);
+    u8g2.sendBuffer();
   });
 
   onewire_temp_1->connect_to(temp_display);
